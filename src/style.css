@@ -93,3 +93,10 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+canvas {
+  border: black 1px solid;
+  border-radius: 8px;
+  box-shadow: inset 0px 0px 0px 1000px white, /* inner fill */ /* Cover shadow with "white" effect */
+              5px 5px 10px rgba(0, 0, 0, 0.5); /* outer drop shadow */
+}
