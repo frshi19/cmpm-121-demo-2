@@ -15,20 +15,48 @@ canvas.width = 256;
 canvas.height = 256;
 app.appendChild(canvas);
 
-//create div for clear, undo, redo buttons
+// Create div for clear, undo, redo buttons
 const buttonDiv: HTMLDivElement = document.createElement("div");
 buttonDiv.className = "buttonDiv";
 app.appendChild(buttonDiv);
 
-// create clear button
+// Create clear button
 const clearButton: HTMLButtonElement = document.createElement("button");
 clearButton.innerHTML = "Clear";
 clearButton.onclick = () => {
   drawingData = [];
-  currentStroke = [];
+  redoStack = [];
   dispatchDrawingChanged();
 };
 buttonDiv.appendChild(clearButton);
+
+// Create undo button
+const undoButton: HTMLButtonElement = document.createElement("button");
+undoButton.innerHTML = "Undo";
+undoButton.onclick = () => {
+  if (drawingData.length > 0) {
+    const lastStroke = drawingData.pop(); // Remove the last stroke
+    if (lastStroke) {
+      redoStack.push(lastStroke); // Add the removed stroke to the redo stack
+    }
+    dispatchDrawingChanged();
+  }
+};
+buttonDiv.appendChild(undoButton);
+
+// Create redo button
+const redoButton: HTMLButtonElement = document.createElement("button");
+redoButton.innerHTML = "Redo";
+redoButton.onclick = () => {
+  if (redoStack.length > 0) {
+    const lastRedoStroke = redoStack.pop(); // Remove the last stroke from the redo stack
+    if (lastRedoStroke) {
+      drawingData.push(lastRedoStroke); // Add the stroke back to the drawing data
+    }
+    dispatchDrawingChanged();
+  }
+};
+buttonDiv.appendChild(redoButton);
 
 // Get the 2D drawing context
 const ctx = canvas.getContext("2d");
@@ -40,6 +68,7 @@ if (ctx) {
 let isDrawing = false;
 let drawingData: Array<Array<{ x: number, y: number }>> = []; // Array to store the strokes
 let currentStroke: Array<{ x: number, y: number }> = []; // Stroke currently being drawn
+let redoStack: Array<Array<{ x: number, y: number }>> = []; // Stack to store undone strokes
 
 // Function to dispatch "drawing-changed" event
 const dispatchDrawingChanged = () => {
@@ -52,6 +81,9 @@ const startDrawing = (event: MouseEvent) => {
   isDrawing = true;
   currentStroke = [];
   currentStroke.push({ x: event.offsetX, y: event.offsetY }); // Add the first point
+
+  // Clear the redo stack since we're making a new stroke
+  redoStack = [];
   dispatchDrawingChanged(); // Trigger an update
 };
 
