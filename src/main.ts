@@ -24,9 +24,9 @@ app.appendChild(buttonDiv);
 const clearButton: HTMLButtonElement = document.createElement("button");
 clearButton.innerHTML = "Clear";
 clearButton.onclick = () => {
-  if (ctx) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-  }
+  drawingData = [];
+  currentStroke = [];
+  dispatchDrawingChanged();
 };
 buttonDiv.appendChild(clearButton);
 
@@ -38,27 +38,73 @@ if (ctx) {
 }
 
 let isDrawing = false;
+let drawingData: Array<Array<{ x: number, y: number }>> = []; // Array to store the strokes
+let currentStroke: Array<{ x: number, y: number }> = []; // Stroke currently being drawn
 
+// Function to dispatch "drawing-changed" event
+const dispatchDrawingChanged = () => {
+  const event = new Event("drawing-changed");
+  canvas.dispatchEvent(event);
+};
+
+// Start drawing (beginning of a stroke)
 const startDrawing = (event: MouseEvent) => {
   isDrawing = true;
-  if (ctx) {
-    ctx.beginPath(); // Begin a new path
-    ctx.moveTo(event.offsetX, event.offsetY); // Move the path to the mouse position
-  }
+  currentStroke = [];
+  currentStroke.push({ x: event.offsetX, y: event.offsetY }); // Add the first point
+  dispatchDrawingChanged(); // Trigger an update
 };
 
+// Drawing while the mouse is down
 const draw = (event: MouseEvent) => {
-  if (!isDrawing || !ctx) return; // Don't draw if not pressed or context not available
-  ctx.lineTo(event.offsetX, event.offsetY); // Create a line to the new position
-  ctx.stroke(); // Render the line on the canvas
+  if (!isDrawing) return;
+
+  currentStroke.push({ x: event.offsetX, y: event.offsetY }); // Add points to the current stroke
+  redraw(); // Redraw on each mouse move to show the current stroke
 };
 
+// Stop drawing (end of a stroke)
 const stopDrawing = () => {
-  isDrawing = false;
-  if (ctx) {
-    ctx.closePath(); // Close the path when drawing stops
+  if (isDrawing) {
+    drawingData.push(currentStroke); // Save the stroke into drawing data
+    currentStroke = [];
+    isDrawing = false;
+    dispatchDrawingChanged(); // Update after stroke is completed
   }
 };
+
+// Function to clear and redraw the entire canvas
+const redraw = () => {
+  if (ctx) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
+    ctx.beginPath();
+
+    // Redraw all completed strokes
+    drawingData.forEach(stroke => {
+      stroke.forEach((point, index) => {
+        if (index === 0) {
+          ctx.moveTo(point.x, point.y); // Move to the first point of the stroke
+        } else {
+          ctx.lineTo(point.x, point.y); // Draw a line to the next point
+        }
+      });
+    });
+
+    // Draw the currently active stroke (in progress)
+    currentStroke.forEach((point, index) => {
+      if (index === 0) {
+        ctx.moveTo(point.x, point.y); // Move to the first point of the current stroke
+      } else {
+        ctx.lineTo(point.x, point.y); // Draw a line to the next point
+      }
+    });
+
+    ctx.stroke(); // Apply the stroke
+  }
+};
+
+// Add an event listener for the custom "drawing-changed" event
+canvas.addEventListener("drawing-changed", redraw);
 
 // Add event listeners for drawing
 canvas.addEventListener('mousedown', startDrawing);
