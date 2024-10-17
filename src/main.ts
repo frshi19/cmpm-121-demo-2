@@ -8,15 +8,17 @@ interface DrawingCommand {
 
 // Define the MarkerLine interface which extends DrawingCommand
 interface MarkerLine extends DrawingCommand {
-  points: { x: number, y: number }[]; // MarkerLine holds an array of points
+  points: { x: number, y: number }[];
+  thickness: number;
 }
 
 // Create a function to initialize a MarkerLine object
-const createMarkerLine = (startX: number, startY: number): MarkerLine => {
+const createMarkerLine = (startX: number, startY: number, thickness: number): MarkerLine => {
   const points = [{ x: startX, y: startY }];
 
   return {
     points,
+    thickness,
 
     // Method to extend the line when dragging
     drag(x: number, y: number): void {
@@ -27,6 +29,7 @@ const createMarkerLine = (startX: number, startY: number): MarkerLine => {
     display(ctx: CanvasRenderingContext2D): void {
       if (points.length === 0) return;
 
+      ctx.lineWidth = this.thickness; // Set line thickness
       ctx.beginPath();
       points.forEach((point, index) => {
         if (index === 0) {
@@ -55,7 +58,7 @@ canvas.width = 256;
 canvas.height = 256;
 app.appendChild(canvas);
 
-// Create div for clear, undo, redo buttons
+// Create div for clear, undo, redo, and tool buttons
 const buttonDiv: HTMLDivElement = document.createElement("div");
 buttonDiv.className = "buttonDiv";
 app.appendChild(buttonDiv);
@@ -98,14 +101,37 @@ redoButton.onclick = () => {
 };
 buttonDiv.appendChild(redoButton);
 
+// Create thin marker button
+const thinButton: HTMLButtonElement = document.createElement("button");
+thinButton.innerHTML = "Thin";
+thinButton.onclick = () => setToolThickness(2, thinButton);
+buttonDiv.appendChild(thinButton);
+
+// Create thick marker button
+const thickButton: HTMLButtonElement = document.createElement("button");
+thickButton.innerHTML = "Thick";
+thickButton.onclick = () => setToolThickness(8, thickButton);
+buttonDiv.appendChild(thickButton);
+
+// Add selectedTool class to the selected button
+const setToolThickness = (thicknessValue: number, button: HTMLButtonElement) => {
+  currentThickness = thicknessValue;
+  
+  // Update button styles
+  const buttons = document.querySelectorAll('.buttonDiv button');
+  buttons.forEach(btn => btn.classList.remove("selectedTool"));
+  button.classList.add("selectedTool");
+};
+
 // Get the 2D drawing context
 const ctx = canvas.getContext("2d");
 if (ctx) {
-  ctx.lineWidth = 2; // Set the thickness of the drawing line
+  ctx.lineWidth = 2; // Set the default thickness of the drawing line
   ctx.strokeStyle = "black"; // Set the color of the line
 }
 
 let isDrawing = false;
+let currentThickness = 2; // Default tool thickness
 let drawingData: DrawingCommand[] = []; // Array to store drawing commands
 let currentCommand: MarkerLine | null = null;
 let redoStack: DrawingCommand[] = []; // Stack to store undone drawing commands
@@ -120,8 +146,8 @@ const dispatchDrawingChanged = () => {
 const startDrawing = (event: MouseEvent) => {
   isDrawing = true;
 
-  // Create a new MarkerLine for the current stroke
-  currentCommand = createMarkerLine(event.offsetX, event.offsetY);
+  // Create a new MarkerLine for the current stroke with the current thickness
+  currentCommand = createMarkerLine(event.offsetX, event.offsetY, currentThickness);
 
   // Clear the redo stack since we're making a new stroke
   redoStack = [];
