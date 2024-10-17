@@ -1,5 +1,45 @@
 import "./style.css";
 
+// Define the DrawingCommand interface with display and drag methods
+interface DrawingCommand {
+  display(ctx: CanvasRenderingContext2D): void;
+  drag(x: number, y: number): void;
+}
+
+// Define the MarkerLine interface which extends DrawingCommand
+interface MarkerLine extends DrawingCommand {
+  points: { x: number, y: number }[]; // MarkerLine holds an array of points
+}
+
+// Create a function to initialize a MarkerLine object
+const createMarkerLine = (startX: number, startY: number): MarkerLine => {
+  const points = [{ x: startX, y: startY }];
+
+  return {
+    points,
+
+    // Method to extend the line when dragging
+    drag(x: number, y: number): void {
+      points.push({ x, y });
+    },
+
+    // Method to render the line on the canvas
+    display(ctx: CanvasRenderingContext2D): void {
+      if (points.length === 0) return;
+
+      ctx.beginPath();
+      points.forEach((point, index) => {
+        if (index === 0) {
+          ctx.moveTo(point.x, point.y);
+        } else {
+          ctx.lineTo(point.x, point.y);
+        }
+      });
+      ctx.stroke();
+    }
+  };
+};
+
 const APP_NAME = "Frank's Sketchpad";
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
@@ -9,7 +49,7 @@ const appTitle: HTMLHeadingElement = document.createElement("h1");
 appTitle.innerHTML = APP_NAME;
 app.appendChild(appTitle);
 
-// create canvas
+// Create canvas
 const canvas: HTMLCanvasElement = document.createElement("canvas");
 canvas.width = 256;
 canvas.height = 256;
@@ -35,9 +75,9 @@ const undoButton: HTMLButtonElement = document.createElement("button");
 undoButton.innerHTML = "Undo";
 undoButton.onclick = () => {
   if (drawingData.length > 0) {
-    const lastStroke = drawingData.pop(); // Remove the last stroke
-    if (lastStroke) {
-      redoStack.push(lastStroke); // Add the removed stroke to the redo stack
+    const lastCommand = drawingData.pop(); // Remove the last drawing command
+    if (lastCommand) {
+      redoStack.push(lastCommand); // Add it to the redo stack
     }
     dispatchDrawingChanged();
   }
@@ -49,9 +89,9 @@ const redoButton: HTMLButtonElement = document.createElement("button");
 redoButton.innerHTML = "Redo";
 redoButton.onclick = () => {
   if (redoStack.length > 0) {
-    const lastRedoStroke = redoStack.pop(); // Remove the last stroke from the redo stack
-    if (lastRedoStroke) {
-      drawingData.push(lastRedoStroke); // Add the stroke back to the drawing data
+    const lastRedoCommand = redoStack.pop(); // Remove the last command from the redo stack
+    if (lastRedoCommand) {
+      drawingData.push(lastRedoCommand); // Add it back to the drawing data
     }
     dispatchDrawingChanged();
   }
@@ -66,9 +106,9 @@ if (ctx) {
 }
 
 let isDrawing = false;
-let drawingData: Array<Array<{ x: number, y: number }>> = []; // Array to store the strokes
-let currentStroke: Array<{ x: number, y: number }> = []; // Stroke currently being drawn
-let redoStack: Array<Array<{ x: number, y: number }>> = []; // Stack to store undone strokes
+let drawingData: DrawingCommand[] = []; // Array to store drawing commands
+let currentCommand: MarkerLine | null = null;
+let redoStack: DrawingCommand[] = []; // Stack to store undone drawing commands
 
 // Function to dispatch "drawing-changed" event
 const dispatchDrawingChanged = () => {
@@ -79,8 +119,9 @@ const dispatchDrawingChanged = () => {
 // Start drawing (beginning of a stroke)
 const startDrawing = (event: MouseEvent) => {
   isDrawing = true;
-  currentStroke = [];
-  currentStroke.push({ x: event.offsetX, y: event.offsetY }); // Add the first point
+
+  // Create a new MarkerLine for the current stroke
+  currentCommand = createMarkerLine(event.offsetX, event.offsetY);
 
   // Clear the redo stack since we're making a new stroke
   redoStack = [];
@@ -89,19 +130,20 @@ const startDrawing = (event: MouseEvent) => {
 
 // Drawing while the mouse is down
 const draw = (event: MouseEvent) => {
-  if (!isDrawing) return;
+  if (!isDrawing || !currentCommand) return;
 
-  currentStroke.push({ x: event.offsetX, y: event.offsetY }); // Add points to the current stroke
+  // Extend the current line
+  currentCommand.drag(event.offsetX, event.offsetY);
   redraw(); // Redraw on each mouse move to show the current stroke
 };
 
 // Stop drawing (end of a stroke)
 const stopDrawing = () => {
-  if (isDrawing) {
-    drawingData.push(currentStroke); // Save the stroke into drawing data
-    currentStroke = [];
+  if (isDrawing && currentCommand) {
+    drawingData.push(currentCommand); // Save the current command into the drawing data
+    currentCommand = null;
     isDrawing = false;
-    dispatchDrawingChanged(); // Update after stroke is completed
+    dispatchDrawingChanged(); // Update after the stroke is completed
   }
 };
 
@@ -109,29 +151,16 @@ const stopDrawing = () => {
 const redraw = () => {
   if (ctx) {
     ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
-    ctx.beginPath();
 
-    // Redraw all completed strokes
-    drawingData.forEach(stroke => {
-      stroke.forEach((point, index) => {
-        if (index === 0) {
-          ctx.moveTo(point.x, point.y); // Move to the first point of the stroke
-        } else {
-          ctx.lineTo(point.x, point.y); // Draw a line to the next point
-        }
-      });
+    // Redraw all completed drawing commands
+    drawingData.forEach(command => {
+      command.display(ctx); // Display each command
     });
 
-    // Draw the currently active stroke (in progress)
-    currentStroke.forEach((point, index) => {
-      if (index === 0) {
-        ctx.moveTo(point.x, point.y); // Move to the first point of the current stroke
-      } else {
-        ctx.lineTo(point.x, point.y); // Draw a line to the next point
-      }
-    });
-
-    ctx.stroke(); // Apply the stroke
+    // Display the currently active command (in progress)
+    if (currentCommand) {
+      currentCommand.display(ctx);
+    }
   }
 };
 
