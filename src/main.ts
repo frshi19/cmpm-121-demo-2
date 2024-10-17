@@ -12,6 +12,14 @@ interface MarkerLine extends DrawingCommand {
   thickness: number;
 }
 
+// Define the ToolPreview interface
+interface ToolPreview {
+  x: number;
+  y: number;
+  thickness: number;
+  draw(ctx: CanvasRenderingContext2D): void;
+}
+
 // Create a function to initialize a MarkerLine object
 const createMarkerLine = (startX: number, startY: number, thickness: number): MarkerLine => {
   const points = [{ x: startX, y: startY }];
@@ -43,6 +51,24 @@ const createMarkerLine = (startX: number, startY: number, thickness: number): Ma
   };
 };
 
+// Create a function to initialize a ToolPreview object
+const createToolPreview = (x: number, y: number, thickness: number): ToolPreview => {
+  return {
+    x,
+    y,
+    thickness,
+
+    // Method to draw the tool preview (a circle) on the canvas
+    draw(ctx: CanvasRenderingContext2D): void {
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "black";
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.thickness / 2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  };
+};
+
 const APP_NAME = "Frank's Sketchpad";
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
@@ -57,8 +83,9 @@ const canvas: HTMLCanvasElement = document.createElement("canvas");
 canvas.width = 256;
 canvas.height = 256;
 app.appendChild(canvas);
+canvas.style.cursor = "none"
 
-// Create div for clear, undo, redo, and tool buttons
+// Create div for buttons
 const buttonDiv: HTMLDivElement = document.createElement("div");
 buttonDiv.className = "buttonDiv";
 app.appendChild(buttonDiv);
@@ -135,6 +162,7 @@ let currentThickness = 2; // Default tool thickness
 let drawingData: DrawingCommand[] = []; // Array to store drawing commands
 let currentCommand: MarkerLine | null = null;
 let redoStack: DrawingCommand[] = []; // Stack to store undone drawing commands
+let toolPreview: ToolPreview | null = null; // Tool preview object
 
 // Function to dispatch "drawing-changed" event
 const dispatchDrawingChanged = () => {
@@ -142,9 +170,18 @@ const dispatchDrawingChanged = () => {
   canvas.dispatchEvent(event);
 };
 
+// Function to dispatch "tool-moved" event
+const dispatchToolMoved = (x: number, y: number) => {
+  const event = new CustomEvent("tool-moved", {
+    detail: { x, y }
+  });
+  canvas.dispatchEvent(event);
+};
+
 // Start drawing (beginning of a stroke)
 const startDrawing = (event: MouseEvent) => {
   isDrawing = true;
+  toolPreview = null; // Hide tool preview while drawing
 
   // Create a new MarkerLine for the current stroke with the current thickness
   currentCommand = createMarkerLine(event.offsetX, event.offsetY, currentThickness);
@@ -187,14 +224,32 @@ const redraw = () => {
     if (currentCommand) {
       currentCommand.display(ctx);
     }
+
+    // Display the tool preview if not drawing
+    if (!isDrawing && toolPreview) {
+      toolPreview.draw(ctx);
+    }
   }
 };
 
 // Add an event listener for the custom "drawing-changed" event
 canvas.addEventListener("drawing-changed", redraw);
 
+// Add an event listener for the "tool-moved" event to update tool preview
+canvas.addEventListener("tool-moved", (event: Event) => {
+  const customEvent = event as CustomEvent<{ x: number, y: number }>; // Cast to CustomEvent
+  const { x, y } = customEvent.detail;
+  toolPreview = createToolPreview(x, y, currentThickness);
+  redraw(); // Trigger a redraw to show the tool preview
+});
+
 // Add event listeners for drawing
 canvas.addEventListener('mousedown', startDrawing);
-canvas.addEventListener('mousemove', draw);
+canvas.addEventListener('mousemove', (event: MouseEvent) => {
+  if (!isDrawing) {
+    dispatchToolMoved(event.offsetX, event.offsetY); // Dispatch tool-moved event
+  }
+  draw(event);
+});
 canvas.addEventListener('mouseup', stopDrawing);
 canvas.addEventListener('mouseout', stopDrawing); // Also stop drawing if the mouse leaves the canvas
