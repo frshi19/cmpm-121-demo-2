@@ -12,11 +12,20 @@ interface MarkerLine extends DrawingCommand {
   thickness: number;
 }
 
+// Define the StickerCommand interface which extends DrawingCommand
+interface StickerCommand extends DrawingCommand {
+  emoji: string;
+  x: number;
+  y: number;
+  size: number;
+}
+
 // Define the ToolPreview interface
 interface ToolPreview {
   x: number;
   y: number;
-  thickness: number;
+  thickness?: number;
+  emoji?: string;
   draw(ctx: CanvasRenderingContext2D): void;
 }
 
@@ -28,16 +37,14 @@ const createMarkerLine = (startX: number, startY: number, thickness: number): Ma
     points,
     thickness,
 
-    // Method to extend the line when dragging
     drag(x: number, y: number): void {
       points.push({ x, y });
     },
 
-    // Method to render the line on the canvas
     display(ctx: CanvasRenderingContext2D): void {
       if (points.length === 0) return;
 
-      ctx.lineWidth = this.thickness; // Set line thickness
+      ctx.lineWidth = this.thickness;
       ctx.beginPath();
       points.forEach((point, index) => {
         if (index === 0) {
@@ -51,20 +58,45 @@ const createMarkerLine = (startX: number, startY: number, thickness: number): Ma
   };
 };
 
-// Create a function to initialize a ToolPreview object
-const createToolPreview = (x: number, y: number, thickness: number): ToolPreview => {
+// Create a function to initialize a ToolPreview object (for marker or sticker)
+const createToolPreview = (x: number, y: number, thickness?: number, emoji?: string): ToolPreview => {
   return {
     x,
     y,
     thickness,
+    emoji,
 
-    // Method to draw the tool preview (a circle) on the canvas
     draw(ctx: CanvasRenderingContext2D): void {
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = "black";
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.thickness / 2, 0, Math.PI * 2);
-      ctx.stroke();
+      if (emoji) {
+        ctx.font = "30px serif";
+        ctx.fillText(emoji, this.x - 15, this.y + 15); // Offset to center emoji
+      } else if (thickness) {
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = "black";
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, thickness / 2, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+  };
+};
+
+// Create a function to initialize a StickerCommand object
+const createStickerCommand = (emoji: string, x: number, y: number, size: number): StickerCommand => {
+  return {
+    emoji,
+    x,
+    y,
+    size,
+
+    drag(newX: number, newY: number): void {
+      this.x = newX;
+      this.y = newY;
+    },
+
+    display(ctx: CanvasRenderingContext2D): void {
+      ctx.font = `${this.size}px serif`;
+      ctx.fillText(this.emoji, this.x - this.size / 2, this.y + this.size / 2);
     }
   };
 };
@@ -78,19 +110,16 @@ const appTitle: HTMLHeadingElement = document.createElement("h1");
 appTitle.innerHTML = APP_NAME;
 app.appendChild(appTitle);
 
-// Create canvas
 const canvas: HTMLCanvasElement = document.createElement("canvas");
 canvas.width = 256;
 canvas.height = 256;
 app.appendChild(canvas);
-canvas.style.cursor = "none"
+canvas.style.cursor = "none";
 
-// Create div for buttons
 const buttonDiv: HTMLDivElement = document.createElement("div");
 buttonDiv.className = "buttonDiv";
 app.appendChild(buttonDiv);
 
-// Create clear button
 const clearButton: HTMLButtonElement = document.createElement("button");
 clearButton.innerHTML = "Clear";
 clearButton.onclick = () => {
@@ -100,77 +129,86 @@ clearButton.onclick = () => {
 };
 buttonDiv.appendChild(clearButton);
 
-// Create undo button
 const undoButton: HTMLButtonElement = document.createElement("button");
 undoButton.innerHTML = "Undo";
 undoButton.onclick = () => {
   if (drawingData.length > 0) {
-    const lastCommand = drawingData.pop(); // Remove the last drawing command
+    const lastCommand = drawingData.pop();
     if (lastCommand) {
-      redoStack.push(lastCommand); // Add it to the redo stack
+      redoStack.push(lastCommand);
     }
     dispatchDrawingChanged();
   }
 };
 buttonDiv.appendChild(undoButton);
 
-// Create redo button
 const redoButton: HTMLButtonElement = document.createElement("button");
 redoButton.innerHTML = "Redo";
 redoButton.onclick = () => {
   if (redoStack.length > 0) {
-    const lastRedoCommand = redoStack.pop(); // Remove the last command from the redo stack
+    const lastRedoCommand = redoStack.pop();
     if (lastRedoCommand) {
-      drawingData.push(lastRedoCommand); // Add it back to the drawing data
+      drawingData.push(lastRedoCommand);
     }
     dispatchDrawingChanged();
   }
 };
 buttonDiv.appendChild(redoButton);
 
-// Create thin marker button
 const thinButton: HTMLButtonElement = document.createElement("button");
 thinButton.innerHTML = "Thin";
 thinButton.onclick = () => setToolThickness(2, thinButton);
 buttonDiv.appendChild(thinButton);
 
-// Create thick marker button
 const thickButton: HTMLButtonElement = document.createElement("button");
 thickButton.innerHTML = "Thick";
 thickButton.onclick = () => setToolThickness(8, thickButton);
 buttonDiv.appendChild(thickButton);
 
-// Add selectedTool class to the selected button
 const setToolThickness = (thicknessValue: number, button: HTMLButtonElement) => {
   currentThickness = thicknessValue;
-  
-  // Update button styles
+  selectedSticker = null;
+
   const buttons = document.querySelectorAll('.buttonDiv button');
   buttons.forEach(btn => btn.classList.remove("selectedTool"));
   button.classList.add("selectedTool");
 };
 
-// Get the 2D drawing context
+// Add sticker buttons
+const stickerEmojis = ["🙂", "🍄", "🐟"];
+stickerEmojis.forEach((emoji) => {
+  const stickerButton: HTMLButtonElement = document.createElement("button");
+  stickerButton.innerHTML = emoji;
+  stickerButton.onclick = () => {
+    selectedSticker = emoji;
+    currentThickness = 0; // Reset thickness when a sticker is selected
+    const buttons = document.querySelectorAll('.buttonDiv button');
+    buttons.forEach(btn => btn.classList.remove("selectedTool")); // Clear selected state
+    stickerButton.classList.add("selectedTool"); // Set the selected state for the current sticker
+  };
+  buttonDiv.appendChild(stickerButton);
+});
+
+
 const ctx = canvas.getContext("2d");
 if (ctx) {
-  ctx.lineWidth = 2; // Set the default thickness of the drawing line
-  ctx.strokeStyle = "black"; // Set the color of the line
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "black";
 }
 
 let isDrawing = false;
-let currentThickness = 2; // Default tool thickness
-let drawingData: DrawingCommand[] = []; // Array to store drawing commands
-let currentCommand: MarkerLine | null = null;
-let redoStack: DrawingCommand[] = []; // Stack to store undone drawing commands
-let toolPreview: ToolPreview | null = null; // Tool preview object
+let currentThickness = 2;
+let drawingData: DrawingCommand[] = [];
+let currentCommand: MarkerLine | StickerCommand | null = null;
+let redoStack: DrawingCommand[] = [];
+let toolPreview: ToolPreview | null = null;
+let selectedSticker: string | null = null;
 
-// Function to dispatch "drawing-changed" event
 const dispatchDrawingChanged = () => {
   const event = new Event("drawing-changed");
   canvas.dispatchEvent(event);
 };
 
-// Function to dispatch "tool-moved" event
 const dispatchToolMoved = (x: number, y: number) => {
   const event = new CustomEvent("tool-moved", {
     detail: { x, y }
@@ -178,78 +216,75 @@ const dispatchToolMoved = (x: number, y: number) => {
   canvas.dispatchEvent(event);
 };
 
-// Start drawing (beginning of a stroke)
 const startDrawing = (event: MouseEvent) => {
   isDrawing = true;
-  toolPreview = null; // Hide tool preview while drawing
+  toolPreview = null;
 
-  // Create a new MarkerLine for the current stroke with the current thickness
-  currentCommand = createMarkerLine(event.offsetX, event.offsetY, currentThickness);
+  if (selectedSticker) {
+    currentCommand = createStickerCommand(selectedSticker, event.offsetX, event.offsetY, 30);
+  } else {
+    currentCommand = createMarkerLine(event.offsetX, event.offsetY, currentThickness);
+  }
 
-  // Clear the redo stack since we're making a new stroke
   redoStack = [];
-  dispatchDrawingChanged(); // Trigger an update
+  dispatchDrawingChanged();
 };
 
-// Drawing while the mouse is down
 const draw = (event: MouseEvent) => {
   if (!isDrawing || !currentCommand) return;
 
-  // Extend the current line
   currentCommand.drag(event.offsetX, event.offsetY);
-  redraw(); // Redraw on each mouse move to show the current stroke
+  redraw();
 };
 
-// Stop drawing (end of a stroke)
 const stopDrawing = () => {
   if (isDrawing && currentCommand) {
-    drawingData.push(currentCommand); // Save the current command into the drawing data
+    drawingData.push(currentCommand);
     currentCommand = null;
     isDrawing = false;
-    dispatchDrawingChanged(); // Update after the stroke is completed
+    dispatchDrawingChanged();
   }
 };
 
-// Function to clear and redraw the entire canvas
 const redraw = () => {
   if (ctx) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Redraw all completed drawing commands
     drawingData.forEach(command => {
-      command.display(ctx); // Display each command
+      command.display(ctx);
     });
 
-    // Display the currently active command (in progress)
     if (currentCommand) {
       currentCommand.display(ctx);
     }
 
-    // Display the tool preview if not drawing
     if (!isDrawing && toolPreview) {
       toolPreview.draw(ctx);
     }
   }
 };
 
-// Add an event listener for the custom "drawing-changed" event
 canvas.addEventListener("drawing-changed", redraw);
 
-// Add an event listener for the "tool-moved" event to update tool preview
 canvas.addEventListener("tool-moved", (event: Event) => {
-  const customEvent = event as CustomEvent<{ x: number, y: number }>; // Cast to CustomEvent
+  const customEvent = event as CustomEvent<{ x: number, y: number }>;
   const { x, y } = customEvent.detail;
-  toolPreview = createToolPreview(x, y, currentThickness);
-  redraw(); // Trigger a redraw to show the tool preview
+
+  if (selectedSticker) {
+    toolPreview = createToolPreview(x, y, undefined, selectedSticker);
+  } else {
+    toolPreview = createToolPreview(x, y, currentThickness);
+  }
+
+  redraw();
 });
 
-// Add event listeners for drawing
 canvas.addEventListener('mousedown', startDrawing);
 canvas.addEventListener('mousemove', (event: MouseEvent) => {
   if (!isDrawing) {
-    dispatchToolMoved(event.offsetX, event.offsetY); // Dispatch tool-moved event
+    dispatchToolMoved(event.offsetX, event.offsetY);
   }
   draw(event);
 });
 canvas.addEventListener('mouseup', stopDrawing);
-canvas.addEventListener('mouseout', stopDrawing); // Also stop drawing if the mouse leaves the canvas
+canvas.addEventListener('mouseout', stopDrawing);
