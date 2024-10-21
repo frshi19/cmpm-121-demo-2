@@ -174,20 +174,45 @@ const setToolThickness = (thicknessValue: number, button: HTMLButtonElement) => 
   button.classList.add("selectedTool");
 };
 
-// Add sticker buttons
-const stickerEmojis = ["🙂", "🍄", "🐟"];
-stickerEmojis.forEach((emoji) => {
-  const stickerButton: HTMLButtonElement = document.createElement("button");
-  stickerButton.innerHTML = emoji;
-  stickerButton.onclick = () => {
-    selectedSticker = emoji;
-    currentThickness = 0; // Reset thickness when a sticker is selected
-    const buttons = document.querySelectorAll('.buttonDiv button');
-    buttons.forEach(btn => btn.classList.remove("selectedTool")); // Clear selected state
-    stickerButton.classList.add("selectedTool"); // Set the selected state for the current sticker
-  };
-  buttonDiv.appendChild(stickerButton);
-});
+// Store stickers in an array for a data-driven approach
+const stickers = ["🙂", "🍄", "🐟"];
+
+// Function to create sticker buttons
+const createStickerButtons = () => {
+  // Clear previous sticker buttons
+  const existingStickerButtons = buttonDiv.querySelectorAll(".stickerButton");
+  existingStickerButtons.forEach(button => button.remove());
+
+  // Create buttons for each sticker
+  stickers.forEach((emoji) => {
+    const stickerButton: HTMLButtonElement = document.createElement("button");
+    stickerButton.className = "stickerButton"; // Add class for easy identification
+    stickerButton.innerHTML = emoji;
+    stickerButton.onclick = () => {
+      selectedSticker = emoji;
+      currentThickness = 0; // Reset thickness when a sticker is selected
+      const buttons = document.querySelectorAll('.buttonDiv button');
+      buttons.forEach(btn => btn.classList.remove("selectedTool")); // Clear selected state
+      stickerButton.classList.add("selectedTool"); // Set the selected state for the current sticker
+    };
+    buttonDiv.appendChild(stickerButton);
+  });
+};
+
+// Call this function to create initial sticker buttons
+createStickerButtons();
+
+// Add custom sticker button
+const customStickerButton: HTMLButtonElement = document.createElement("button");
+customStickerButton.innerHTML = "Add Custom Sticker";
+customStickerButton.onclick = () => {
+  const customSticker = prompt("Enter your custom sticker:", "🧽");
+  if (customSticker) {
+    stickers.push(customSticker);
+    createStickerButtons(); // Recreate sticker buttons to include the new custom sticker
+  }
+};
+buttonDiv.appendChild(customStickerButton);
 
 
 const ctx = canvas.getContext("2d");
