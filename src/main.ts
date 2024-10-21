@@ -214,6 +214,33 @@ customStickerButton.onclick = () => {
 };
 buttonDiv.appendChild(customStickerButton);
 
+// Add export button
+const exportButton: HTMLButtonElement = document.createElement("button");
+exportButton.innerHTML = "Export";
+exportButton.onclick = () => {
+  // Create a temporary canvas of size 1024x1024
+  const exportCanvas: HTMLCanvasElement = document.createElement("canvas");
+  exportCanvas.width = 1024;
+  exportCanvas.height = 1024;
+  const exportCtx = exportCanvas.getContext("2d");
+
+  if (exportCtx) {
+    // Scale the drawing to fill the larger canvas (4x scale)
+    exportCtx.scale(4, 4);
+
+    // Redraw all commands onto the larger canvas
+    drawingData.forEach(command => {
+      command.display(exportCtx);
+    });
+
+    // Create a download link for the image
+    const anchor = document.createElement("a");
+    anchor.href = exportCanvas.toDataURL("image/png");
+    anchor.download = "sketchpad.png";
+    anchor.click();
+  }
+};
+buttonDiv.appendChild(exportButton);
 
 const ctx = canvas.getContext("2d");
 if (ctx) {
