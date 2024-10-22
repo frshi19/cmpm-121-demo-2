@@ -1,19 +1,26 @@
 import "./style.css";
 
+// Constants for magic numbers
+const thinSize = 1;
+const thickSize = 4;
+const exportWidth = 1024;
+const exportHeight = 1024;
+const emojiSize = 20;
+
 // Define the DrawingCommand interface with display and drag methods
 interface DrawingCommand {
   display(ctx: CanvasRenderingContext2D): void;
   drag(x: number, y: number): void;
 }
 
-// Define the MarkerLine interface which extends DrawingCommand
-interface MarkerLine extends DrawingCommand {
+// Define the BrushLine interface which extends DrawingCommand
+interface BrushLine extends DrawingCommand {
   points: { x: number, y: number }[];
   thickness: number;
 }
 
-// Define the StickerCommand interface which extends DrawingCommand
-interface StickerCommand extends DrawingCommand {
+// Define the EmojiCommand interface which extends DrawingCommand
+interface EmojiCommand extends DrawingCommand {
   emoji: string;
   x: number;
   y: number;
@@ -29,8 +36,8 @@ interface ToolPreview {
   draw(ctx: CanvasRenderingContext2D): void;
 }
 
-// Create a function to initialize a MarkerLine object
-const createMarkerLine = (startX: number, startY: number, thickness: number): MarkerLine => {
+// Create a function to initialize a BrushLine object
+const createBrushLine = (startX: number, startY: number, thickness: number): BrushLine => {
   const points = [{ x: startX, y: startY }];
 
   return {
@@ -58,7 +65,7 @@ const createMarkerLine = (startX: number, startY: number, thickness: number): Ma
   };
 };
 
-// Create a function to initialize a ToolPreview object (for marker or sticker)
+// Create a function to initialize a ToolPreview object (for brush or emoji)
 const createToolPreview = (x: number, y: number, thickness?: number, emoji?: string): ToolPreview => {
   return {
     x,
@@ -68,8 +75,8 @@ const createToolPreview = (x: number, y: number, thickness?: number, emoji?: str
 
     draw(ctx: CanvasRenderingContext2D): void {
       if (emoji) {
-        ctx.font = "30px serif";
-        ctx.fillText(emoji, this.x - 15, this.y + 15); // Offset to center emoji
+        ctx.font = emojiSize + "px serif";
+        ctx.fillText(emoji, this.x - 10, this.y + 10); // Offset to center emoji
       } else if (thickness) {
         ctx.lineWidth = 1;
         ctx.strokeStyle = "black";
@@ -81,8 +88,8 @@ const createToolPreview = (x: number, y: number, thickness?: number, emoji?: str
   };
 };
 
-// Create a function to initialize a StickerCommand object
-const createStickerCommand = (emoji: string, x: number, y: number, size: number): StickerCommand => {
+// Create a function to initialize an EmojiCommand object
+const createEmojiCommand = (emoji: string, x: number, y: number, size: number): EmojiCommand => {
   return {
     emoji,
     x,
@@ -116,10 +123,15 @@ canvas.height = 256;
 app.appendChild(canvas);
 canvas.style.cursor = "none";
 
-const buttonDiv: HTMLDivElement = document.createElement("div");
-buttonDiv.className = "buttonDiv";
-app.appendChild(buttonDiv);
+const buttonDivTop: HTMLDivElement = document.createElement("div");
+buttonDivTop.className = "buttonDivTop";
+app.appendChild(buttonDivTop);
 
+const buttonDivBottom: HTMLDivElement = document.createElement("div");
+buttonDivBottom.className = "buttonDivBottom";
+app.appendChild(buttonDivBottom);
+
+// Create the top row of buttons
 const clearButton: HTMLButtonElement = document.createElement("button");
 clearButton.innerHTML = "Clear";
 clearButton.onclick = () => {
@@ -127,7 +139,7 @@ clearButton.onclick = () => {
   redoStack = [];
   dispatchDrawingChanged();
 };
-buttonDiv.appendChild(clearButton);
+buttonDivTop.appendChild(clearButton);
 
 const undoButton: HTMLButtonElement = document.createElement("button");
 undoButton.innerHTML = "Undo";
@@ -140,7 +152,7 @@ undoButton.onclick = () => {
     dispatchDrawingChanged();
   }
 };
-buttonDiv.appendChild(undoButton);
+buttonDivTop.appendChild(undoButton);
 
 const redoButton: HTMLButtonElement = document.createElement("button");
 redoButton.innerHTML = "Redo";
@@ -153,75 +165,15 @@ redoButton.onclick = () => {
     dispatchDrawingChanged();
   }
 };
-buttonDiv.appendChild(redoButton);
+buttonDivTop.appendChild(redoButton);
 
-const thinButton: HTMLButtonElement = document.createElement("button");
-thinButton.innerHTML = "Thin";
-thinButton.onclick = () => setToolThickness(2, thinButton);
-buttonDiv.appendChild(thinButton);
-
-const thickButton: HTMLButtonElement = document.createElement("button");
-thickButton.innerHTML = "Thick";
-thickButton.onclick = () => setToolThickness(8, thickButton);
-buttonDiv.appendChild(thickButton);
-
-const setToolThickness = (thicknessValue: number, button: HTMLButtonElement) => {
-  currentThickness = thicknessValue;
-  selectedSticker = null;
-
-  const buttons = document.querySelectorAll('.buttonDiv button');
-  buttons.forEach(btn => btn.classList.remove("selectedTool"));
-  button.classList.add("selectedTool");
-};
-
-// Store stickers in an array for a data-driven approach
-const stickers = ["🙂", "🍄", "🐟"];
-
-// Function to create sticker buttons
-const createStickerButtons = () => {
-  // Clear previous sticker buttons
-  const existingStickerButtons = buttonDiv.querySelectorAll(".stickerButton");
-  existingStickerButtons.forEach(button => button.remove());
-
-  // Create buttons for each sticker
-  stickers.forEach((emoji) => {
-    const stickerButton: HTMLButtonElement = document.createElement("button");
-    stickerButton.className = "stickerButton"; // Add class for easy identification
-    stickerButton.innerHTML = emoji;
-    stickerButton.onclick = () => {
-      selectedSticker = emoji;
-      currentThickness = 0; // Reset thickness when a sticker is selected
-      const buttons = document.querySelectorAll('.buttonDiv button');
-      buttons.forEach(btn => btn.classList.remove("selectedTool")); // Clear selected state
-      stickerButton.classList.add("selectedTool"); // Set the selected state for the current sticker
-    };
-    buttonDiv.appendChild(stickerButton);
-  });
-};
-
-// Call this function to create initial sticker buttons
-createStickerButtons();
-
-// Add custom sticker button
-const customStickerButton: HTMLButtonElement = document.createElement("button");
-customStickerButton.innerHTML = "Add Custom Sticker";
-customStickerButton.onclick = () => {
-  const customSticker = prompt("Enter your custom sticker:", "🧽");
-  if (customSticker) {
-    stickers.push(customSticker);
-    createStickerButtons(); // Recreate sticker buttons to include the new custom sticker
-  }
-};
-buttonDiv.appendChild(customStickerButton);
-
-// Add export button
 const exportButton: HTMLButtonElement = document.createElement("button");
 exportButton.innerHTML = "Export";
 exportButton.onclick = () => {
   // Create a temporary canvas of size 1024x1024
   const exportCanvas: HTMLCanvasElement = document.createElement("canvas");
-  exportCanvas.width = 1024;
-  exportCanvas.height = 1024;
+  exportCanvas.width = exportWidth;
+  exportCanvas.height = exportHeight;
   const exportCtx = exportCanvas.getContext("2d");
 
   if (exportCtx) {
@@ -240,21 +192,79 @@ exportButton.onclick = () => {
     anchor.click();
   }
 };
-buttonDiv.appendChild(exportButton);
+
+// Create the bottom row of buttons
+const thinButton: HTMLButtonElement = document.createElement("button");
+thinButton.innerHTML = "Thin";
+thinButton.onclick = () => setToolThickness(thinSize, thinButton);
+buttonDivBottom.appendChild(thinButton);
+
+const thickButton: HTMLButtonElement = document.createElement("button");
+thickButton.innerHTML = "Thick";
+thickButton.onclick = () => setToolThickness(thickSize, thickButton);
+buttonDivBottom.appendChild(thickButton);
+
+const setToolThickness = (thicknessValue: number, button: HTMLButtonElement) => {
+  currentThickness = thicknessValue;
+  selectedEmoji = null;
+
+  const buttons = document.querySelectorAll('.buttonDivBottom button');
+  buttons.forEach(btn => btn.classList.remove("selectedTool"));
+  button.classList.add("selectedTool");
+};
+
+// Store emojis in an array for a data-driven approach
+const emojis = ["🙂", "🍄", "🐟", "🐻"];
+
+// Function to create emoji buttons
+const createEmojiButtons = () => {
+  // Clear previous emoji buttons
+  const existingEmojiButtons = buttonDivBottom.querySelectorAll(".emojiButton");
+  existingEmojiButtons.forEach(button => button.remove());
+
+  // Create buttons for each emoji
+  emojis.forEach((emoji) => {
+    const emojiButton: HTMLButtonElement = document.createElement("button");
+    emojiButton.className = "emojiButton"; // Add class for easy identification
+    emojiButton.innerHTML = emoji;
+    emojiButton.onclick = () => {
+      selectedEmoji = emoji;
+      currentThickness = 0; // Reset thickness when an emoji is selected
+      const buttons = document.querySelectorAll('.buttonDivBottom button');
+      buttons.forEach(btn => btn.classList.remove("selectedTool")); // Clear selected state
+      emojiButton.classList.add("selectedTool"); // Set the selected state for the current emoji
+    };
+    buttonDivBottom.appendChild(emojiButton);
+  });
+};
+
+// Add custom emoji button
+const customEmojiButton: HTMLButtonElement = document.createElement("button");
+customEmojiButton.innerHTML = "Add Custom Emoji";
+customEmojiButton.onclick = () => {
+  const customEmoji = prompt("Enter your custom emoji:", "🧽");
+  if (customEmoji) {
+    emojis.push(customEmoji);
+    createEmojiButtons(); // Recreate emoji buttons to include the new custom emoji
+  }
+};
+buttonDivTop.appendChild(customEmojiButton);
+buttonDivTop.appendChild(exportButton);
+createEmojiButtons();
 
 const ctx = canvas.getContext("2d");
 if (ctx) {
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 1;
   ctx.strokeStyle = "black";
 }
 
 let isDrawing = false;
-let currentThickness = 2;
+let currentThickness = 1;
 let drawingData: DrawingCommand[] = [];
-let currentCommand: MarkerLine | StickerCommand | null = null;
+let currentCommand: BrushLine | EmojiCommand | null = null;
 let redoStack: DrawingCommand[] = [];
 let toolPreview: ToolPreview | null = null;
-let selectedSticker: string | null = null;
+let selectedEmoji: string | null = null;
 
 const dispatchDrawingChanged = () => {
   const event = new Event("drawing-changed");
@@ -272,10 +282,10 @@ const startDrawing = (event: MouseEvent) => {
   isDrawing = true;
   toolPreview = null;
 
-  if (selectedSticker) {
-    currentCommand = createStickerCommand(selectedSticker, event.offsetX, event.offsetY, 30);
+  if (selectedEmoji) {
+    currentCommand = createEmojiCommand(selectedEmoji, event.offsetX, event.offsetY, emojiSize);
   } else {
-    currentCommand = createMarkerLine(event.offsetX, event.offsetY, currentThickness);
+    currentCommand = createBrushLine(event.offsetX, event.offsetY, currentThickness);
   }
 
   redoStack = [];
@@ -322,8 +332,8 @@ canvas.addEventListener("tool-moved", (event: Event) => {
   const customEvent = event as CustomEvent<{ x: number, y: number }>;
   const { x, y } = customEvent.detail;
 
-  if (selectedSticker) {
-    toolPreview = createToolPreview(x, y, undefined, selectedSticker);
+  if (selectedEmoji) {
+    toolPreview = createToolPreview(x, y, undefined, selectedEmoji);
   } else {
     toolPreview = createToolPreview(x, y, currentThickness);
   }
