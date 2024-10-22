@@ -7,6 +7,10 @@ const exportWidth = 1024;
 const exportHeight = 1024;
 const emojiSize = 20;
 
+// Define colors for the brushes
+const brushColors = ["black", "red", "orange", "yellow", "green", "blue", "indigo" ,"purple"];
+let currentColor = brushColors[0]; // Default color is black
+
 // Define the DrawingCommand interface with display and drag methods
 interface DrawingCommand {
   display(ctx: CanvasRenderingContext2D): void;
@@ -17,6 +21,7 @@ interface DrawingCommand {
 interface BrushLine extends DrawingCommand {
   points: { x: number, y: number }[];
   thickness: number;
+  color: string; // Add color property
 }
 
 // Define the EmojiCommand interface which extends DrawingCommand
@@ -36,13 +41,13 @@ interface ToolPreview {
   draw(ctx: CanvasRenderingContext2D): void;
 }
 
-// Create a function to initialize a BrushLine object
-const createBrushLine = (startX: number, startY: number, thickness: number): BrushLine => {
+// Create a function to initialize a BrushLine object with color
+const createBrushLine = (startX: number, startY: number, thickness: number, color: string): BrushLine => {
   const points = [{ x: startX, y: startY }];
-
   return {
     points,
     thickness,
+    color,
 
     drag(x: number, y: number): void {
       points.push({ x, y });
@@ -52,6 +57,7 @@ const createBrushLine = (startX: number, startY: number, thickness: number): Bru
       if (points.length === 0) return;
 
       ctx.lineWidth = this.thickness;
+      ctx.strokeStyle = this.color; // Set the color for the stroke
       ctx.beginPath();
       points.forEach((point, index) => {
         if (index === 0) {
@@ -127,9 +133,37 @@ const buttonDivTop: HTMLDivElement = document.createElement("div");
 buttonDivTop.className = "buttonDivTop";
 app.appendChild(buttonDivTop);
 
+const buttonDivMiddle: HTMLDivElement = document.createElement("div");
+buttonDivMiddle.className = "buttonDivMiddle";
+app.appendChild(buttonDivMiddle);
+
 const buttonDivBottom: HTMLDivElement = document.createElement("div");
 buttonDivBottom.className = "buttonDivBottom";
+
+// Create the div for color buttons
+const colorDiv: HTMLDivElement = document.createElement("div");
+colorDiv.className = "colorDiv"; // Add a class for potential styling
+app.appendChild(colorDiv);
+
+// Function to create color buttons
+const createColorButtons = () => {
+  brushColors.forEach((color) => {
+    const colorButton: HTMLButtonElement = document.createElement("button");
+    colorButton.className = "colorButton"; // Add class for easy identification
+    colorButton.style.backgroundColor = color; // Set the button color
+    colorButton.onclick = () => {
+      currentColor = color; // Set the current selected color
+      const buttons = document.querySelectorAll('.colorDiv button');
+      buttons.forEach(btn => btn.classList.remove("selectedColor"));
+      colorButton.classList.add("selectedColor"); // Highlight the selected color button
+    };
+    colorDiv.appendChild(colorButton);
+  });
+};
+
 app.appendChild(buttonDivBottom);
+
+createColorButtons(); // Initialize color buttons
 
 // Create the top row of buttons
 const clearButton: HTMLButtonElement = document.createElement("button");
@@ -192,26 +226,52 @@ exportButton.onclick = () => {
     anchor.click();
   }
 };
+buttonDivTop.appendChild(exportButton);
 
 // Create the bottom row of buttons
 const thinButton: HTMLButtonElement = document.createElement("button");
 thinButton.innerHTML = "Thin";
 thinButton.onclick = () => setToolThickness(thinSize, thinButton);
-buttonDivBottom.appendChild(thinButton);
+buttonDivMiddle.appendChild(thinButton);
 
 const thickButton: HTMLButtonElement = document.createElement("button");
 thickButton.innerHTML = "Thick";
 thickButton.onclick = () => setToolThickness(thickSize, thickButton);
-buttonDivBottom.appendChild(thickButton);
+buttonDivMiddle.appendChild(thickButton);
+
+// Create a custom brush button that uses a brush size from a slider
+const customBrushButton: HTMLButtonElement = document.createElement("button");
+customBrushButton.innerHTML = "Custom Brush";
+buttonDivMiddle.appendChild(customBrushButton);
+// use the applid brush size when the button is clicked
+customBrushButton.onclick = () => {
+  setToolThickness(parseInt(brushSizeSlider.value), customBrushButton);
+};
+
+// Create a slider for the custom brush size
+const brushSizeSlider: HTMLInputElement = document.createElement("input");
+brushSizeSlider.type = "range";
+brushSizeSlider.min = "1";
+brushSizeSlider.max = "20";
+brushSizeSlider.value = "1";
+brushSizeSlider.oninput = () => {
+  const thicknessValue = parseInt(brushSizeSlider.value);
+  setToolThickness(thicknessValue, customBrushButton);
+};
+buttonDivMiddle.appendChild(brushSizeSlider);
 
 const setToolThickness = (thicknessValue: number, button: HTMLButtonElement) => {
   currentThickness = thicknessValue;
   selectedEmoji = null;
 
-  const buttons = document.querySelectorAll('.buttonDivBottom button');
+  const buttons = document.querySelectorAll('.buttonDivMiddle button');
   buttons.forEach(btn => btn.classList.remove("selectedTool"));
   button.classList.add("selectedTool");
+  // Clear the selected emoji button
+  const emojiButtons = document.querySelectorAll('.buttonDivBottom button');
+  emojiButtons.forEach(btn => btn.classList.remove("selectedTool"));
 };
+
 
 // Store emojis in an array for a data-driven approach
 const emojis = ["🙂", "🍄", "🐟", "🐻"];
@@ -233,6 +293,9 @@ const createEmojiButtons = () => {
       const buttons = document.querySelectorAll('.buttonDivBottom button');
       buttons.forEach(btn => btn.classList.remove("selectedTool")); // Clear selected state
       emojiButton.classList.add("selectedTool"); // Set the selected state for the current emoji
+      // clear the selected tool button
+      const toolButtons = document.querySelectorAll('.buttonDivMiddle button');
+      toolButtons.forEach(btn => btn.classList.remove("selectedTool"));
     };
     buttonDivBottom.appendChild(emojiButton);
   });
@@ -245,38 +308,20 @@ customEmojiButton.onclick = () => {
   const customEmoji = prompt("Enter your custom emoji:", "🧽");
   if (customEmoji) {
     emojis.push(customEmoji);
-    createEmojiButtons(); // Recreate emoji buttons to include the new custom emoji
+    createEmojiButtons(); // Recreate buttons to include the new custom emoji
   }
 };
-buttonDivTop.appendChild(customEmojiButton);
-buttonDivTop.appendChild(exportButton);
-createEmojiButtons();
+buttonDivBottom.appendChild(customEmojiButton);
 
+// Create the canvas context and event listeners
 const ctx = canvas.getContext("2d");
-if (ctx) {
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = "black";
-}
-
-let isDrawing = false;
-let currentThickness = 1;
 let drawingData: DrawingCommand[] = [];
-let currentCommand: BrushLine | EmojiCommand | null = null;
 let redoStack: DrawingCommand[] = [];
+let isDrawing = false;
+let currentCommand: DrawingCommand | null = null;
 let toolPreview: ToolPreview | null = null;
+let currentThickness = thinSize;
 let selectedEmoji: string | null = null;
-
-const dispatchDrawingChanged = () => {
-  const event = new Event("drawing-changed");
-  canvas.dispatchEvent(event);
-};
-
-const dispatchToolMoved = (x: number, y: number) => {
-  const event = new CustomEvent("tool-moved", {
-    detail: { x, y }
-  });
-  canvas.dispatchEvent(event);
-};
 
 const startDrawing = (event: MouseEvent) => {
   isDrawing = true;
@@ -285,7 +330,7 @@ const startDrawing = (event: MouseEvent) => {
   if (selectedEmoji) {
     currentCommand = createEmojiCommand(selectedEmoji, event.offsetX, event.offsetY, emojiSize);
   } else {
-    currentCommand = createBrushLine(event.offsetX, event.offsetY, currentThickness);
+    currentCommand = createBrushLine(event.offsetX, event.offsetY, currentThickness, currentColor); // Pass the color here
   }
 
   redoStack = [];
@@ -293,60 +338,59 @@ const startDrawing = (event: MouseEvent) => {
 };
 
 const draw = (event: MouseEvent) => {
-  if (!isDrawing || !currentCommand) return;
-
-  currentCommand.drag(event.offsetX, event.offsetY);
-  redraw();
-};
-
-const stopDrawing = () => {
   if (isDrawing && currentCommand) {
-    drawingData.push(currentCommand);
-    currentCommand = null;
-    isDrawing = false;
+    currentCommand.drag(event.offsetX, event.offsetY);
+    
+    // Draw current drawing in real-time (this is the key change)
+    ctx!.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Display all previous commands
+    drawingData.forEach(command => {
+      command.display(ctx!);
+    });
+
+    // Display the current drawing being made
+    currentCommand.display(ctx!);
+
+    // Display the tool preview if not drawing
+    if (toolPreview) {
+      toolPreview.draw(ctx!);
+    }
+  } else if (!isDrawing && currentThickness > 0) {
+    toolPreview = createToolPreview(event.offsetX, event.offsetY, currentThickness);
+    dispatchDrawingChanged();
+  } else if (!isDrawing && selectedEmoji) {
+    toolPreview = createToolPreview(event.offsetX, event.offsetY, undefined, selectedEmoji);
     dispatchDrawingChanged();
   }
 };
 
-const redraw = () => {
-  if (ctx) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    drawingData.forEach(command => {
-      command.display(ctx);
-    });
+const stopDrawing = () => {
+  isDrawing = false;
+  if (currentCommand) {
+    drawingData.push(currentCommand);
+    currentCommand = null;
+  }
+  dispatchDrawingChanged();
+};
 
-    if (currentCommand) {
-      currentCommand.display(ctx);
-    }
+const dispatchDrawingChanged = () => {
+  ctx!.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (!isDrawing && toolPreview) {
-      toolPreview.draw(ctx);
-    }
+  drawingData.forEach(command => {
+    command.display(ctx!);
+  });
+
+  if (toolPreview) {
+    toolPreview.draw(ctx!);
   }
 };
 
-canvas.addEventListener("drawing-changed", redraw);
+// Set up mouse events for drawing
+canvas.onmousedown = startDrawing;
+canvas.onmousemove = draw;
+canvas.onmouseup = stopDrawing;
+canvas.onmouseleave = stopDrawing;
 
-canvas.addEventListener("tool-moved", (event: Event) => {
-  const customEvent = event as CustomEvent<{ x: number, y: number }>;
-  const { x, y } = customEvent.detail;
-
-  if (selectedEmoji) {
-    toolPreview = createToolPreview(x, y, undefined, selectedEmoji);
-  } else {
-    toolPreview = createToolPreview(x, y, currentThickness);
-  }
-
-  redraw();
-});
-
-canvas.addEventListener('mousedown', startDrawing);
-canvas.addEventListener('mousemove', (event: MouseEvent) => {
-  if (!isDrawing) {
-    dispatchToolMoved(event.offsetX, event.offsetY);
-  }
-  draw(event);
-});
-canvas.addEventListener('mouseup', stopDrawing);
-canvas.addEventListener('mouseout', stopDrawing);
+createEmojiButtons(); // Initialize emoji buttons
