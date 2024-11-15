@@ -86,8 +86,10 @@ const createToolPreview = (x: number, y: number, thickness?: number, emoji?: str
       } else if (thickness) {
         ctx.lineWidth = 1;
         ctx.strokeStyle = "black";
+        ctx.fillStyle = currentColor; // Fill color (uses the current brush color)
         ctx.beginPath();
         ctx.arc(this.x, this.y, thickness / 2, 0, Math.PI * 2);
+        ctx.fill(); // Fill the circle
         ctx.stroke();
       }
     }
