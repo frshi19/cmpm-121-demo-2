@@ -5,7 +5,7 @@
 
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #e0f7fa;
+  background-color: #808080;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -64,6 +64,7 @@ h1 {
 .selectedTool {
   background-color: #646cff;
   color: white;
+  border: 3px solid #ffffff; /* Add a white border to highlight the selected tool */
 }
 
 /* Added section dividers for Clear, Undo, Redo, and Export */

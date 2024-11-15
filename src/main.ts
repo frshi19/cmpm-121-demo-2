@@ -8,7 +8,7 @@ const exportHeight = 1024;
 const emojiSize = 20;
 
 // Define colors for the brushes
-const brushColors = ["black", "red", "orange", "yellow", "green", "blue", "indigo" ,"purple"];
+const brushColors = ["black", "red", "orange", "yellow", "green", "blue", "indigo" ,"purple", "white"];
 let currentColor = brushColors[0]; // Default color is black
 
 // Define the DrawingCommand interface with display and drag methods
