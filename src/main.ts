@@ -6,6 +6,7 @@ const thickSize = 4;
 const exportWidth = 1024;
 const exportHeight = 1024;
 const emojiSize = 20;
+const canvasSize = 256;
 
 // Define colors for the brushes
 const brushColors = ["black", "red", "orange", "yellow", "green", "blue", "indigo" ,"purple", "white"];
@@ -126,8 +127,8 @@ appTitle.innerHTML = APP_NAME;
 app.appendChild(appTitle);
 
 const canvas: HTMLCanvasElement = document.createElement("canvas");
-canvas.width = 256;
-canvas.height = 256;
+canvas.width = canvasSize;
+canvas.height = canvasSize;
 app.appendChild(canvas);
 canvas.style.cursor = "none";
 
